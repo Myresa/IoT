@@ -1,0 +1,24 @@
+Vagrant.configure("2") do |config|
+    config.vm.box = "debian/bookworm64"
+  
+    config.vm.define "lcamerlyS" do |master|
+      master.vm.hostname = "lcamerlyS"
+      master.vm.network "private_network", ip: "192.168.56.110"
+      master.vm.provider "libvirt" do |vb|
+        vb.memory = "512"
+        vb.cpus = 1
+      end
+      master.vm.provision "shell", path: "server.sh"
+    end
+  
+    config.vm.define "lcamerlySW" do |worker1|
+      worker1.vm.hostname = "lcamerlySW"
+      worker1.vm.network "private_network", ip: "192.168.56.111"
+      worker1.vm.provider "libvirt" do |vb|
+        vb.memory = "512"
+        vb.cpus = 1
+      end
+      worker1.vm.provision "shell", path: "worker.sh", args: ["192.168.56.111"]
+    end
+  
+  end
