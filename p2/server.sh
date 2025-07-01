@@ -15,3 +15,7 @@ until kubectl get nodes | grep -q " Ready"; do
     echo "Waiting for node to be ready..."
     sleep 2
 done
+#
+kubectl apply -f /vagrant/pods/nginx-deployment.yaml
+kubectl apply -f /vagrant/pods/httpd-deployment.yaml
+kubectl apply -f /vagrant/pods/hello-deployment.yaml
