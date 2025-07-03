@@ -16,6 +16,6 @@ until kubectl get nodes | grep -q " Ready"; do
     sleep 2
 done
 #
-kubectl apply -f /vagrant/pods/nginx-deployment.yaml
-kubectl apply -f /vagrant/pods/httpd-deployment.yaml
-kubectl apply -f /vagrant/pods/hello-deployment.yaml
+kubectl apply -f /vagrant/pods/nginx.yaml
+kubectl apply -f /vagrant/pods/httpd.yaml
+kubectl apply -f /vagrant/pods/hello.yaml
