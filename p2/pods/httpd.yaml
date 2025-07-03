@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: httpd-deployment
+  name: app-one
 spec:
   replicas: 1
   selector:
@@ -17,17 +17,19 @@ spec:
         image: httpd:latest
         ports:
         - containerPort: 80
+          name: app1-port
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: httpd-service
+  name: app-one
 spec:
-  type: NodePort
+  type: ClusterIP
   selector:
     app: httpd
   ports:
     - protocol: TCP
       port: 80
       targetPort: 80
-      nodePort: 30081
+
+

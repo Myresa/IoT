@@ -1,9 +1,9 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: nginx-deployment
+  name: app-two
 spec:
-  replicas: 1
+  replicas: 3
   selector:
     matchLabels:
       app: nginx
@@ -17,17 +17,17 @@ spec:
         image: nginx:latest
         ports:
         - containerPort: 80
+          name: app2-port
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: nginx-service
+  name: app-two
 spec:
-  type: NodePort
+  type: ClusterIP
   selector:
     app: nginx
   ports:
     - protocol: TCP
       port: 80
       targetPort: 80
-      nodePort: 30080

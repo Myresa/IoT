@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: hello-deployment
+  name: app-three
 spec:
   replicas: 1
   selector:
@@ -17,17 +17,17 @@ spec:
         image: paulbouwer/hello-kubernetes:1.7
         ports:
         - containerPort: 8080
+          name: app3-port
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: hello-service
+  name: app-three
 spec:
-  type: NodePort
+  type: ClusterIP
   selector:
     app: hello
   ports:
     - protocol: TCP
       port: 80
       targetPort: 8080
-      nodePort: 30082

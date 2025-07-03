@@ -18,4 +18,6 @@ done
 #
 kubectl apply -f /vagrant/pods/nginx.yaml
 kubectl apply -f /vagrant/pods/httpd.yaml
-kubectl apply -f /vagrant/pods/hello.yaml
+kubectl apply -f /vagrant/pods/helloworld.yaml
+kubectl apply -f /vagrant/pods/ingress.yaml
+
