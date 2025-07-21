@@ -25,6 +25,7 @@ kubectl create namespace gitlab
 helm repo add gitlab https://charts.gitlab.io/
 helm repo update
 
+    # -f https://gitlab.com/gitlab-org/charts/gitlab/raw/master/examples/values-minikube-minimum.yaml \
 helm install gitlab gitlab/gitlab \
     --namespace gitlab \
     --set global.hosts.domain=${DOMAIN_NAME} \

@@ -7,7 +7,7 @@ data:
   Corefile: |
     .:53 {
         hosts {
-            172.22.255.200 gitlab.lcamerly
+            172.22.255.200 gitlab.ta.mere
             fallthrough
         }
         forward . /etc/resolv.conf

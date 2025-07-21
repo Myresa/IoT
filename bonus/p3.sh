@@ -23,23 +23,23 @@ argocd login localhost:8080 --username admin --password "$PASSWORD" --insecure
 
 kubectl create namespace dev || true
 
-echo | openssl s_client -showcerts -connect gitlab.lcamerly:443 | \
+echo | openssl s_client -showcerts -connect gitlab.ta.mere:443 | \
   sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' > gitlab-lcamerly.pem
 
-argocd cert add-tls gitlab.lcamerly --from gitlab-lcamerly.pem
+argocd cert add-tls gitlab.ta.mere --from gitlab-lcamerly.pem
 kubectl -n argocd rollout restart deployment argocd-repo-server
 rm gitlab-lcamerly.pem
 
 argocd app create will42 \
-  --repo https://root:$(cat ./token)@gitlab.lcamerly/root/lcamerly-p3-app.git \
+  --repo https://root:$(cat ./token)@gitlab.ta.mere/root/lcamerly-p3-app.git \
   --insecure \
-  --path . \ername : root ; Password : $(kubectl get secret gitlab-gitlab-initial-root-password -n gitlab -o jsonpath='{.data.password}' | base64 --decode)"
-
-kubectl port-forward svc/gitlab-nginx-ingress-controller -n gitlab 2222:22 >/dev/null 2>&1 &
-
+  --path . \
   --dest-server https://kubernetes.default.svc \
   --dest-namespace dev \
   --sync-policy automated
+
+
+kubectl port-forward svc/gitlab-nginx-ingress-controller -n gitlab 2222:22 >/dev/null 2>&1 &
 
 
 argocd app sync will42
