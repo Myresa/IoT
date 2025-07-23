@@ -1,0 +1,1 @@
+user = User.find_by(username: 'root'); token = PersonalAccessToken.create!(user: user, name: 'CLI token', scopes: [:api], expires_at: 1.year.from_now);puts token.token;

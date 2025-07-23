@@ -4,6 +4,9 @@ CLUSTER_NAME="gitlab"
 DOMAIN_NAME="ta.mere"
 EMAIL="lululadebrouille@example.com"
 METALLB_IP_RANGE="172.22.255.200-172.22.255.250"
+PROJECT_NAME="lcamerly-p3-app"
+SSH_KEY_TITLE="AutoAddedKey-$(date +%s)"
+PUBKEY_PATH="${HOME}/.ssh/id_rsa.pub"
 
 k3d cluster create ${CLUSTER_NAME} \
   -p "80:80@loadbalancer" \
@@ -25,7 +28,6 @@ kubectl create namespace gitlab
 helm repo add gitlab https://charts.gitlab.io/
 helm repo update
 
-    # -f https://gitlab.com/gitlab-org/charts/gitlab/raw/master/examples/values-minikube-minimum.yaml \
 helm install gitlab gitlab/gitlab \
     --namespace gitlab \
     --set global.hosts.domain=${DOMAIN_NAME} \
@@ -38,7 +40,6 @@ helm install gitlab gitlab/gitlab \
     --timeout 15m
 
 
-kubectl get svc -n gitlab | grep nginx-ingress-controller
 
 echo "✅ GitLab is deploying..."
 while ! curl -ksf https://gitlab.${DOMAIN_NAME} >/dev/null 2>&1; do
@@ -49,8 +50,92 @@ mkdir -p ~/.certs
 cp gitlab-ta-mere.pem ~/.certs/
 git config --global http."https://gitlab.ta.mere/".sslCAInfo ~/.certs/gitlab-ta-mere.pem
 rm gitlab-ta-mere.pem
-echo "🌐 Added certs to trusted autorities !"
-echo "🌐 Access it after a few minutes at: https://gitlab.${DOMAIN_NAME}"
-echo "Username : root ; Password : $(kubectl get secret gitlab-gitlab-initial-root-password -n gitlab -o jsonpath='{.data.password}' | base64 --decode)"
 
 kubectl port-forward svc/gitlab-nginx-ingress-controller -n gitlab 2222:22 >/dev/null 2>&1 &
+
+kubectl exec -n gitlab -it -c toolbox "$(kubectl get pods -n gitlab | grep toolbox | cut -d ' ' -f1)" -- gitlab-rails runner "$(cat ./generateToken.rb)" | tr -d '\r' >token
+
+
+# git clone https://github.com/Axiaaa/IoT-p3-lcamerly
+
+# TOKEN="$(cat ./token)"
+
+# if [ -f "$PUBKEY_PATH" ]; then
+#   PUBKEY_CONTENT=$(cat "$PUBKEY_PATH")
+#   curl -k --request POST "https://gitlab.ta.mere/api/v4/user/keys" \
+#        --header "PRIVATE-TOKEN: $TOKEN" \
+#        --header "Content-Type: application/json" \
+#        --data "{\"title\": \"${SSH_KEY_TITLE}\", \"key\": \"${PUBKEY_CONTENT}\"}"
+# else
+#   echo "No SSH public key found at $PUBKEY_PATH. Aborting."
+#   exit 1
+# fi
+
+# curl -k --request POST "https://gitlab.ta.mere/api/v4/projects" \
+#      --header "PRIVATE-TOKEN: $TOKEN" \
+#      --form "name=${PROJECT_NAME}"
+
+# git init --initial-branch=main
+# git remote add origin https://root:$TOKEN@gitlab.ta.mere/root/lcamerly-p3-app.git
+# git add IoT-p3-lcamerly/*
+# git commit -m "Initial commit"
+# git push --set-upstream origin main
+
+
+# k3d cluster create argocluster --agents 2
+
+# kubectl apply -f configmap.yaml
+# kubectl -n kube-system rollout restart deployment coredns
+
+# kubectl create namespace argocd || true
+# kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+
+# echo "Waiting for all ArgoCD pods to be ready..."
+# while [[ $(kubectl get pods -n argocd -o json | jq '[.items[] | select(.status.phase=="Running" and ([.status.containerStatuses[]?.ready] | all))] | length') -lt 7 ]]; do
+#   sleep 2
+#   echo "Waiting..."
+# done
+
+# kubectl port-forward svc/argocd-server -n argocd 8080:443 >/dev/null 2>&1 &
+# sleep 1
+
+# PASSWORD=$(kubectl get secret argocd-initial-admin-secret -n argocd -o jsonpath="{.data.password}" | base64 -d)
+
+# argocd login localhost:8080 --username admin --password "$PASSWORD" --insecure
+
+# kubectl create namespace dev || true
+
+# echo | openssl s_client -showcerts -connect gitlab.ta.mere:443 | \
+#   sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' > gitlab-lcamerly.pem
+
+# argocd cert add-tls gitlab.ta.mere --from gitlab-lcamerly.pem
+# kubectl -n argocd rollout restart deployment argocd-repo-server
+# rm gitlab-lcamerly.pem
+
+# argocd app create will42 \
+#   --repo https://root:$(cat ./token)@gitlab.ta.mere/root/lcamerly-p3-app.git \
+#   --insecure \
+#   --path . \
+#   --dest-server https://kubernetes.default.svc \
+#   --dest-namespace dev \
+#   --sync-policy automated
+
+
+# kubectl port-forward svc/gitlab-nginx-ingress-controller -n gitlab 2222:22 >/dev/null 2>&1 &
+
+# argocd app sync will42
+
+# echo "Waiting for the application to be ready..."
+# while kubectl get pods -n dev | grep playground | grep -v Running; do
+#   sleep 2
+# done
+
+# kubectl port-forward deployment/playground -n dev 8888:8888 >/dev/null 2>&1 &
+
+
+# echo "You can view the application in ArgoCD at https://localhost:8080"
+# echo "You can log in to ArgoCD with the following credentials:"
+# echo "Username: admin"
+# echo "Password: $PASSWORD"
+# echo "🌐 Access Gitlab at https://gitlab.${DOMAIN_NAME}"
+# echo "Username : root ; Password : $(kubectl get secret gitlab-gitlab-initial-root-password -n gitlab -o jsonpath='{.data.password}' | base64 --decode)"

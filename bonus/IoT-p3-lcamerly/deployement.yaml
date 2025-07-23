@@ -14,6 +14,6 @@ spec:
     spec:
       containers:
       - name: playground
-        image: wil42/playground:v1 # Change ce tag pour v2 lors de la mise à jour
+        image: wil42/playground:v2 # Change ce tag pour v2 lors de la mise à jour
         ports:
         - containerPort: 8888
