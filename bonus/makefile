@@ -1,5 +1,6 @@
 all : 
-	./script.sh
+	./gitlab.sh
+	./argocd.sh
 
 p3 : 
 	./p3.sh
@@ -7,5 +8,7 @@ p3 :
 clean : 
 	k3d cluster delete gitlab
 	k3d cluster delete argocluster
+	rm -rf .git token 
+	
 
 re : clean all
