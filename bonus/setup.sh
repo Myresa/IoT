@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # =============================================================================
-# GitLab on K3d with ArgoCD Deployment Script - SECURE SSL VERSION
+# GitLab on K3d with ArgoCD Deployment Script
 # =============================================================================
 
 set -euo pipefail  # Exit on error, undefined vars, pipe failures
@@ -17,34 +17,51 @@ readonly PROJECT_NAME="lcamerly-p3-app"
 readonly SSH_KEY_TITLE="AutoAddedKey-$(date +%s)"
 readonly PUBKEY_PATH="${HOME}/.ssh/id_rsa.pub"
 
-# Color codes for output
+# Colors for beautiful output
 readonly RED='\033[0;31m'
 readonly GREEN='\033[0;32m'
 readonly YELLOW='\033[1;33m'
 readonly BLUE='\033[0;34m'
+readonly PURPLE='\033[0;35m'
+readonly CYAN='\033[0;36m'
+readonly WHITE='\033[1;37m'
 readonly NC='\033[0m' # No Color
+
+# Unicode symbols for visual appeal
+readonly CHECKMARK="✓"
+readonly CROSS="✗"
+readonly ARROW="→"
+readonly STAR="★"
+readonly GEAR="⚙"
 
 # -----------------------------------------------------------------------------
 # Helper Functions
 # -----------------------------------------------------------------------------
 log_info() {
-    echo -e "${BLUE}ℹ️  $1${NC}"
+    echo -e "${BLUE}${GEAR}${NC} ${WHITE}$1${NC}"
 }
 
 log_success() {
-    echo -e "${GREEN}✅ $1${NC}"
+    echo -e "${GREEN}${CHECKMARK}${NC} ${WHITE}$1${NC}"
 }
 
 log_warning() {
-    echo -e "${YELLOW}⚠️  $1${NC}"
+    echo -e "${YELLOW}⚠${NC} ${WHITE}$1${NC}"
 }
 
 log_error() {
-    echo -e "${RED}❌ $1${NC}"
+    echo -e "${RED}${CROSS}${NC} ${WHITE}$1${NC}"
 }
 
-log_step() {
-    echo -e "\n${BLUE}🔄 $1${NC}"
+print_header() {
+    echo -e "\n${PURPLE}═══════════════════════════════════════════════════════════${NC}"
+    echo -e "${PURPLE}${STAR}${NC} ${WHITE}$1${NC} ${PURPLE}${STAR}${NC}"
+    echo -e "${PURPLE}═══════════════════════════════════════════════════════════${NC}\n"
+}
+
+print_step() {
+    echo -e "\n${CYAN}${ARROW} Step $1: ${WHITE}$2${NC}"
+    echo -e "${CYAN}───────────────────────────────────────────────────────────${NC}"
 }
 
 wait_for_url() {
@@ -53,34 +70,42 @@ wait_for_url() {
     local count=0
     
     log_info "Waiting for $url to be accessible..."
+    echo -ne "${BLUE}${GEAR}${NC} ${WHITE}Checking URL status"
+    
     while ! curl -ksf "$url" >/dev/null 2>&1; do
+        echo -ne "."
         sleep 5
         count=$((count + 5))
         if [ $count -ge $timeout ]; then
-            log_error "Timeout waiting for $url"
+            echo -e "\n${RED}${CROSS}${NC} ${WHITE}Timeout waiting for $url${NC}"
             return 1
         fi
         if [ $((count % 30)) -eq 0 ]; then
-            log_info "Still waiting... ($count/${timeout}s)"
+            echo -e "\n${BLUE}${GEAR}${NC} ${WHITE}Still waiting... ($count/${timeout}s)${NC}"
+            echo -ne "${BLUE}${GEAR}${NC} ${WHITE}Checking URL status"
         fi
         
         if kubectl get pods -n "$CLUSTER_NAME" | grep -qE "ErrImagePull"; then
-            log_error "Error while pulling image"
+            echo -e "\n${RED}${CROSS}${NC} ${WHITE}Error while pulling image${NC}"
         fi
     done
-    log_success "$url is now accessible"
+    echo -e "\n${GREEN}${CHECKMARK}${NC} ${WHITE}$url is now accessible${NC}"
 }
 
 wait_for_pods() {
     local namespace=$1
-    local timeout=${2:-600}
+    local timeout=$2
     
     log_info "Waiting for pods in namespace '$namespace' to be ready..."
+    echo -ne "${BLUE}${GEAR}${NC} ${WHITE}Checking pod status"
+    
     if ! kubectl wait --namespace "$namespace" --for=condition=Ready pods --all --timeout="${timeout}s"; then
         log_error "Timeout waiting for pods in namespace '$namespace'"
         return 1
     fi
     log_success "All pods in namespace '$namespace' are ready"
+
+    echo -e "\n${GREEN}${CHECKMARK}${NC} ${WHITE}All pods in namespace '$namespace' are ready${NC}"
 }
 
 cleanup_on_exit() {
@@ -115,38 +140,45 @@ extract_certificate_chain() {
 # Main Functions
 # -----------------------------------------------------------------------------
 create_k3d_cluster() {
-    log_step "Creating K3d cluster '$CLUSTER_NAME'"
+    print_step "1" "Creating K3d cluster '$CLUSTER_NAME'"
     
+    log_info "Setting up k3d cluster with load balancer and port forwarding..."
     k3d cluster create "${CLUSTER_NAME}" \
-        --registry-config "./registries.yaml" \
         -p "80:80@loadbalancer" \
         -p "443:443@loadbalancer" \
         -p "2222:2222@server:0" \
         --agents 2 \
-        --k3s-arg "--disable=traefik@server:*" \
-
+        --k3s-arg "--disable=traefik@server:*"
     
     log_success "K3d cluster created successfully"
 }
 
 setup_metallb() {
-    log_step "Setting up MetalLB"
+    print_step "2" "Setting up MetalLB load balancer"
     
+    log_info "Installing MetalLB manifests..."
     kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.15.2/config/manifests/metallb-native.yaml
+    
+    log_info "Waiting for MetalLB pods to be ready..."
     wait_for_pods "metallb-system" 90
+    
+    log_info "Applying MetalLB configuration..."
     kubectl apply -f ./metallb-config.yaml
     
     log_success "MetalLB configured successfully"
 }
 
 install_gitlab() {
-    log_step "Installing GitLab"
+    print_step "3" "Installing GitLab"
     
+    log_info "Creating GitLab namespace..."
     kubectl create namespace gitlab
     
+    log_info "Adding GitLab Helm repository..."
     helm repo add gitlab https://charts.gitlab.io/
     helm repo update
     
+    log_info "Installing GitLab..."
     helm install gitlab gitlab/gitlab \
         --namespace gitlab \
         --set global.hosts.domain="${DOMAIN_NAME}" \
@@ -162,14 +194,15 @@ install_gitlab() {
 }
 
 configure_gitlab_ssl() {
-    log_step "Configuring GitLab SSL certificates"
+    print_step "4" "Configuring GitLab SSL certificates"
     
+    log_info "Waiting for GitLab to be accessible..."
     wait_for_url "https://gitlab.${DOMAIN_NAME}"
     
-    # Extract complete certificate chain
+    log_info "Extracting SSL certificate chain..."
     extract_certificate_chain "gitlab.${DOMAIN_NAME}" "gitlab-cert-chain.pem"
     
-    # Configure Git to trust the certificate chain
+    log_info "Configuring Git client SSL trust..."
     mkdir -p ~/.certs
     cp gitlab-cert-chain.pem ~/.certs/
     git config --global http."https://gitlab.${DOMAIN_NAME}/".sslCAInfo ~/.certs/gitlab-cert-chain.pem
@@ -178,12 +211,12 @@ configure_gitlab_ssl() {
 }
 
 setup_gitlab_project() {
-    log_step "Setting up GitLab project and repository"
+    print_step "5" "Setting up GitLab project and repository"
     
-    # Start port forwarding for SSH
+    log_info "Starting SSH port forwarding..."
     kubectl port-forward svc/gitlab-nginx-ingress-controller -n gitlab 2222:22 >/dev/null 2>&1 &
     
-    # Generate GitLab token
+    log_info "Generating GitLab access token..."
     local toolbox_pod
     toolbox_pod=$(kubectl get pods -n gitlab | grep toolbox | awk '{print $1}' | head -n1)
     
@@ -192,8 +225,9 @@ setup_gitlab_project() {
     
     local token
     token=$(cat ./token)
+    log_success "GitLab token generated"
     
-    # Clone and setup repository
+    log_info "Cloning and setting up repository..."
     if [ -d "IoT-p3-lcamerly" ]; then
         rm -rf IoT-p3-lcamerly
     fi
@@ -202,6 +236,7 @@ setup_gitlab_project() {
     mv IoT-p3-lcamerly/* .
     rm -rf IoT-p3-lcamerly/
     
+    log_info "Pushing code to GitLab repository..."
     git init --initial-branch=main
     git remote add origin "https://root:${token}@gitlab.${DOMAIN_NAME}/root/${PROJECT_NAME}.git"
     git add service.yaml deployement.yaml
@@ -212,52 +247,53 @@ setup_gitlab_project() {
 }
 
 setup_dns() {
-    log_step "Configuring DNS"
+    print_step "6" "Configuring DNS resolution"
     
+    log_info "Applying DNS configuration..."
     kubectl apply -f configmap.yaml
+    
+    log_info "Restarting CoreDNS..."
     kubectl -n kube-system rollout restart deployment coredns
     
     log_success "DNS configuration applied"
 }
 
 install_argocd() {
-    log_step "Installing ArgoCD"
+    print_step "7" "Installing ArgoCD"
     
+    log_info "Creating ArgoCD namespace..."
     kubectl create namespace argocd || true
+    
+    log_info "Applying ArgoCD manifests..."
     kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
     
-    # Wait for ArgoCD pods to be ready
     log_info "Waiting for ArgoCD pods to be ready..."
+    echo -ne "${BLUE}${GEAR}${NC} ${WHITE}Checking ArgoCD pod status"
+    
     while [[ $(kubectl get pods -n argocd -o json | jq '[.items[] | select(.status.phase=="Running" and ([.status.containerStatuses[]?.ready] | all))] | length') -lt 7 ]]; do
+        echo -ne "."
         sleep 2
     done
     
-    log_success "ArgoCD installed successfully"
+    echo -e "\n${GREEN}${CHECKMARK}${NC} ${WHITE}ArgoCD installed successfully${NC}"
 }
 
 configure_argocd_certificates() {
-    log_step "Configuring ArgoCD with proper SSL certificates"
+    print_step "8" "Configuring ArgoCD with SSL certificates"
     
-    # Extract the complete certificate chain again (in case it changed)
+    log_info "Extracting GitLab certificate chain for ArgoCD..."
     extract_certificate_chain "gitlab.${DOMAIN_NAME}" "gitlab-cert-chain.pem"
     
-    # Method 1: Add certificates to ArgoCD's TLS certificate store
-    log_info "Adding GitLab certificates to ArgoCD TLS store..."
-    
-    # Create or update the argocd-tls-certs-cm ConfigMap
+    log_info "Adding GitLab certificates to ArgoCD TLS storSe..."
     kubectl create configmap argocd-tls-certs-cm \
         --from-file="gitlab.${DOMAIN_NAME}"=gitlab-cert-chain.pem \
         -n argocd \
         --dry-run=client -o yaml | kubectl apply -f -
     
-    # Method 2: Add certificates to ArgoCD's known hosts and certificate store
     log_info "Configuring ArgoCD repository certificates..."
-    
     # Get the certificate in the right format for ArgoCD
-    # Split the chain into individual certificates if needed
     csplit -s -f cert- gitlab-cert-chain.pem '/-----BEGIN CERTIFICATE-----/' '{*}' 2>/dev/null || true
     
-    # Use the first certificate (server certificate) for ArgoCD cert command
     if [ -f "cert-01" ] && [ -s "cert-01" ]; then
         mv cert-01 gitlab-server-cert.pem
     else
@@ -267,10 +303,7 @@ configure_argocd_certificates() {
     # Clean up split files
     rm -f cert-* 2>/dev/null || true
     
-    # Method 3: Create a comprehensive certificate configuration
     log_info "Creating comprehensive certificate configuration for ArgoCD..."
-    
-    # Create a custom certificate bundle that includes system CAs + GitLab cert
     cat > argocd-certificate-config.yaml << EOF
 apiVersion: v1
 kind: ConfigMap
@@ -298,13 +331,9 @@ data:
     gitlab.${DOMAIN_NAME} ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC...
 EOF
     
-    # Apply the certificate configuration
     kubectl apply -f argocd-certificate-config.yaml
     
-    # Method 4: Configure ArgoCD repo server with certificate bundle
     log_info "Configuring ArgoCD repository server with certificate bundle..."
-    
-    # Create a volume mount for certificates in the repo server
     kubectl patch deployment argocd-repo-server -n argocd --patch-file /dev/stdin << EOF
 spec:
   template:
@@ -324,16 +353,13 @@ spec:
           name: argocd-tls-certs-cm
 EOF
     
-    # Restart ArgoCD components to pick up certificate changes
     log_info "Restarting ArgoCD components to load certificates..."
     kubectl rollout restart deployment argocd-repo-server -n argocd
     kubectl rollout restart deployment argocd-server -n argocd
-    kubectl rollout restart deployment argocd-application-controller -n argocd
     
-    # Wait for rollouts to complete
+    log_info "Waiting for ArgoCD rollouts to complete..."
     kubectl rollout status deployment argocd-repo-server -n argocd --timeout=300s
     kubectl rollout status deployment argocd-server -n argocd --timeout=300s
-    kubectl rollout status deployment argocd-application-controller -n argocd --timeout=300s
     
     # Clean up temporary files
     rm -f gitlab-cert-chain.pem gitlab-server-cert.pem argocd-certificate-config.yaml
@@ -342,32 +368,28 @@ EOF
 }
 
 configure_argocd() {
-    log_step "Configuring ArgoCD"
+    print_step "9" "Configuring ArgoCD application"
     
-    # Configure certificates first
     configure_argocd_certificates
     
-    # Start port forwarding
+    log_info "Starting ArgoCD port forwarding..."
     kubectl port-forward svc/argocd-server -n argocd 8080:443 >/dev/null 2>&1 &
-    sleep 10  # Give more time for services to be ready after restart
+    sleep 10
     
-    # Get ArgoCD password
+    log_info "Retrieving ArgoCD admin password..."
     local password
     password=$(kubectl get secret argocd-initial-admin-secret -n argocd -o jsonpath="{.data.password}" | base64 -d)
     
-    # Login to ArgoCD
+    log_info "Logging into ArgoCD..."
     argocd login localhost:8080 --username admin --password "$password" --insecure
     
-    # Create dev namespace
+    log_info "Creating development namespace..."
     kubectl create namespace dev || true
     
-    # Create ArgoCD application with proper certificate handling
+    log_info "Creating ArgoCD application with secure certificate verification..."
     local token
     token=$(cat ./token)
     
-    log_info "Creating ArgoCD application with secure certificate verification..."
-    
-    # Create the application using a manifest for better control
     cat > argocd-app-secure.yaml << EOF
 apiVersion: argoproj.io/v1alpha1
 kind: Application
@@ -403,12 +425,10 @@ stringData:
   url: https://gitlab.${DOMAIN_NAME}/root/${PROJECT_NAME}.git
   username: root
   password: ${token}
-  # Note: No insecure flags - we rely on proper certificate configuration
 EOF
     
     kubectl apply -f argocd-app-secure.yaml
     
-    # Verify the application was created
     sleep 5
     if kubectl get application will42 -n argocd >/dev/null 2>&1; then
         log_success "ArgoCD application created successfully with secure certificates"
@@ -417,66 +437,70 @@ EOF
         return 1
     fi
     
-    # Clean up
     rm -f argocd-app-secure.yaml
 }
 
 deploy_application() {
-    log_step "Deploying application"
+    print_step "10" "Deploying application"
     
-    # Ensure SSH port forwarding is running
+    log_info "Ensuring SSH port forwarding is active..."
     kubectl port-forward svc/gitlab-nginx-ingress-controller -n gitlab 2222:22 >/dev/null 2>&1 &
     
-    # Check application status and sync if needed
     log_info "Checking ArgoCD application status..."
+    echo -ne "${BLUE}${GEAR}${NC} ${WHITE}Waiting for application recognition"
     
-    # Wait for the application to be recognized by ArgoCD
     local timeout=60
     local count=0
+
+    kubectl port-forward svc/argocd-server -n argocd 8080:443 >/dev/null 2>&1 &
     while ! argocd app get will42 >/dev/null 2>&1; do
+        echo -ne "."
         sleep 2
         count=$((count + 2))
         if [ $count -ge $timeout ]; then
-            log_error "ArgoCD application not found after $timeout seconds"
+            echo -e "\n${RED}${CROSS}${NC} ${WHITE}ArgoCD application not found after $timeout seconds${NC}"
             return 1
         fi
     done
     
-    # Sync the application
+    echo -e "\n${GREEN}${CHECKMARK}${NC} ${WHITE}Application recognized by ArgoCD${NC}"
+    
     log_info "Syncing ArgoCD application..."
     argocd app sync will42
     
-    # Wait for application to be ready
     log_info "Waiting for application pods to be ready..."
+    echo -ne "${BLUE}${GEAR}${NC} ${WHITE}Checking application deployment"
+    
     timeout=300
     count=0
     while ! kubectl get pods -n dev 2>/dev/null | grep playground | grep Running >/dev/null 2>&1; do
+        echo -ne "."
         sleep 5
         count=$((count + 5))
         if [ $count -ge $timeout ]; then
-            log_warning "Timeout waiting for application pods, checking status..."
+            echo -e "\n${YELLOW}⚠${NC} ${WHITE}Timeout waiting for application pods, checking status...${NC}"
             kubectl get pods -n dev 2>/dev/null || log_info "No pods found in dev namespace yet"
             break
         fi
         
-        # Show progress every 30 seconds
         if [ $((count % 30)) -eq 0 ]; then
-            log_info "Still waiting for application deployment... ($count/${timeout}s)"
-            argocd app get will42 --show-params || true
+            echo -e "\n${BLUE}${GEAR}${NC} ${WHITE}Still waiting for application deployment... ($count/${timeout}s)${NC}"
+            echo -ne "${BLUE}${GEAR}${NC} ${WHITE}Checking application deployment"
         fi
     done
     
-    # Start application port forwarding if pods are ready
     if kubectl get pods -n dev 2>/dev/null | grep playground | grep Running >/dev/null 2>&1; then
+        echo -e "\n${GREEN}${CHECKMARK}${NC} ${WHITE}Application pods are running${NC}"
+        log_info "Starting application port forwarding..."
         kubectl port-forward deployment/playground -n dev 8888:8888 >/dev/null 2>&1 &
         log_success "Application deployed and port forwarding started"
     else
-        log_warning "Application deployment may still be in progress"
+        echo -e "\n${YELLOW}⚠${NC} ${WHITE}Application deployment may still be in progress${NC}"
     fi
 }
 
 display_access_info() {
-    log_step "Deployment completed!"
+    print_header "Secure GitLab & ArgoCD Deployment Complete!"
     
     local argocd_password
     argocd_password=$(kubectl get secret argocd-initial-admin-secret -n argocd -o jsonpath='{.data.password}' | base64 --decode)
@@ -484,36 +508,25 @@ display_access_info() {
     local gitlab_password
     gitlab_password=$(kubectl get secret gitlab-gitlab-initial-root-password -n gitlab -o jsonpath='{.data.password}' | base64 --decode)
     
-    echo
-    echo "========================================================================================="
-    echo -e "${GREEN}🎉 SECURE DEPLOYMENT COMPLETED${NC}"
-    echo "========================================================================================="
-    echo
-    echo -e "${BLUE}📊 ArgoCD Access:${NC}"
-    echo "   URL: https://localhost:8080"
-    echo "   Username: admin"
-    echo "   Password: $argocd_password"
-    echo
-    echo -e "${BLUE}🦊 GitLab Access:${NC}"
-    echo "   URL: https://gitlab.${DOMAIN_NAME}"
-    echo "   Username: root"
-    echo "   Password: $gitlab_password"
-    echo
-    echo -e "${BLUE}🚀 Application Access:${NC}"
-    echo "   URL: http://localhost:8888"
-    echo
-    echo -e "${GREEN}🔒 Security Features:${NC}"
-    echo "   ✅ Full SSL certificate verification enabled"
-    echo "   ✅ No insecure connections used"
-    echo "   ✅ Complete certificate chain validation"
-    echo "   ✅ Proper CA certificate handling"
-    echo
-    echo -e "${BLUE}📋 Status Commands:${NC}"
-    echo "   - Check ArgoCD app: argocd app get will42"
-    echo "   - Check pods: kubectl get pods -n dev"
-    echo "   - View logs: kubectl logs -n argocd deployment/argocd-repo-server"
-    echo
-    echo "========================================================================================="
+    echo -e "${GREEN}${CHECKMARK}${NC} ${WHITE}ArgoCD is available at:${NC} ${CYAN}https://localhost:8080${NC}"
+    echo -e "   ${CYAN}Username:${NC} ${WHITE}admin${NC}"
+    echo -e "   ${CYAN}Password:${NC} ${WHITE}$argocd_password${NC}"
+    echo ""
+    echo -e "${GREEN}${CHECKMARK}${NC} ${WHITE}GitLab is available at:${NC} ${CYAN}https://gitlab.${DOMAIN_NAME}${NC}"
+    echo -e "   ${CYAN}Username:${NC} ${WHITE}root${NC}"
+    echo -e "   ${CYAN}Password:${NC} ${WHITE}$gitlab_password${NC}"
+    echo ""
+    echo -e "${GREEN}${CHECKMARK}${NC} ${WHITE}Application is available at:${NC} ${CYAN}http://localhost:8888${NC}"
+    echo ""
+    echo -e "${YELLOW}${STAR}${NC} ${WHITE}Security Features:${NC}"
+    echo -e "   ${GREEN}${CHECKMARK}${NC} ${WHITE}Full SSL certificate verification enabled${NC}"
+    echo -e "   ${GREEN}${CHECKMARK}${NC} ${WHITE}No insecure connections used${NC}"
+    echo -e "   ${GREEN}${CHECKMARK}${NC} ${WHITE}Complete certificate chain validation${NC}"
+    echo -e "   ${GREEN}${CHECKMARK}${NC} ${WHITE}Proper CA certificate handling${NC}"
+    echo ""
+    echo -e "${PURPLE}═══════════════════════════════════════════════════════════${NC}"
+    echo -e "${GREEN}${STAR}${NC} ${WHITE}Happy secure deploying!${NC} ${GREEN}${STAR}${NC}"
+    echo -e "${PURPLE}═══════════════════════════════════════════════════════════${NC}\n"
 }
 
 # -----------------------------------------------------------------------------
@@ -522,6 +535,8 @@ display_access_info() {
 main() {
     # Set up cleanup on script exit
     trap cleanup_on_exit EXIT INT TERM
+    
+    print_header "GitLab on K3d with ArgoCD - Secure SSL Deployment"
     
     log_info "Starting secure GitLab on K3d deployment script"
     log_info "This deployment uses proper SSL certificate handling without insecure connections"
