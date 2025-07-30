@@ -495,9 +495,6 @@ deploy_application() {
     
     if kubectl get pods -n dev 2>/dev/null | grep playground | grep Running >/dev/null 2>&1; then
         echo -e "\n${GREEN}${CHECKMARK}${NC} ${WHITE}Application pods are running${NC}"
-        log_info "Starting application port forwarding..."
-        kubectl port-forward deployment/wil-playground -n dev 8888:8888 >/dev/null 2>&1 &
-        log_success "Application deployed and port forwarding started"
     else
         echo -e "\n${YELLOW}⚠${NC} ${WHITE}Application deployment may still be in progress${NC}"
     fi
@@ -505,7 +502,9 @@ deploy_application() {
 
 display_access_info() {
     print_header "GitLab & ArgoCD Deployment Complete!"
-    
+
+    kubectl port-forward deployment/wil-playground -n dev 8888:8888 >/dev/null 2>&1 &
+    kubectl port-forward svc/argocd-server -n argocd 8080:443 >/dev/null 2>&1 &
     local argocd_password
     argocd_password=$(kubectl get secret argocd-initial-admin-secret -n argocd -o jsonpath='{.data.password}' | base64 --decode)
     
