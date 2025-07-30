@@ -196,6 +196,10 @@ install_gitlab() {
 configure_gitlab_ssl() {
     print_step "4" "Configuring GitLab SSL certificates"
     
+    if ! grep -Eq "^127\.0\.0\.1[[:space:]]+gitlab\.${DOMAIN_NAME}" /etc/hosts; then
+        echo -e "127.0.0.1       gitlab.${DOMAIN_NAME}" | sudo tee -a /etc/hosts
+    fi
+
     log_info "Waiting for GitLab to be accessible..."
     wait_for_url "https://gitlab.${DOMAIN_NAME}"
     
@@ -437,6 +441,7 @@ EOF
         return 1
     fi
     
+    kubectl port-forward svc/argocd-server -n argocd 8080:443 >/dev/null 2>&1 &
     rm -f argocd-app-secure.yaml
 }
 
@@ -451,8 +456,7 @@ deploy_application() {
     
     local timeout=60
     local count=0
-
-    kubectl port-forward svc/argocd-server -n argocd 8080:443 >/dev/null 2>&1 &
+    
     while ! argocd app get will42 >/dev/null 2>&1; do
         echo -ne "."
         sleep 2
@@ -492,7 +496,7 @@ deploy_application() {
     if kubectl get pods -n dev 2>/dev/null | grep playground | grep Running >/dev/null 2>&1; then
         echo -e "\n${GREEN}${CHECKMARK}${NC} ${WHITE}Application pods are running${NC}"
         log_info "Starting application port forwarding..."
-        kubectl port-forward deployment/playground -n dev 8888:8888 >/dev/null 2>&1 &
+        kubectl port-forward deployment/wil-playground -n dev 8888:8888 >/dev/null 2>&1 &
         log_success "Application deployed and port forwarding started"
     else
         echo -e "\n${YELLOW}⚠${NC} ${WHITE}Application deployment may still be in progress${NC}"
@@ -500,7 +504,7 @@ deploy_application() {
 }
 
 display_access_info() {
-    print_header "Secure GitLab & ArgoCD Deployment Complete!"
+    print_header "GitLab & ArgoCD Deployment Complete!"
     
     local argocd_password
     argocd_password=$(kubectl get secret argocd-initial-admin-secret -n argocd -o jsonpath='{.data.password}' | base64 --decode)
@@ -518,15 +522,7 @@ display_access_info() {
     echo ""
     echo -e "${GREEN}${CHECKMARK}${NC} ${WHITE}Application is available at:${NC} ${CYAN}http://localhost:8888${NC}"
     echo ""
-    echo -e "${YELLOW}${STAR}${NC} ${WHITE}Security Features:${NC}"
-    echo -e "   ${GREEN}${CHECKMARK}${NC} ${WHITE}Full SSL certificate verification enabled${NC}"
-    echo -e "   ${GREEN}${CHECKMARK}${NC} ${WHITE}No insecure connections used${NC}"
-    echo -e "   ${GREEN}${CHECKMARK}${NC} ${WHITE}Complete certificate chain validation${NC}"
-    echo -e "   ${GREEN}${CHECKMARK}${NC} ${WHITE}Proper CA certificate handling${NC}"
-    echo ""
     echo -e "${PURPLE}═══════════════════════════════════════════════════════════${NC}"
-    echo -e "${GREEN}${STAR}${NC} ${WHITE}Happy secure deploying!${NC} ${GREEN}${STAR}${NC}"
-    echo -e "${PURPLE}═══════════════════════════════════════════════════════════${NC}\n"
 }
 
 # -----------------------------------------------------------------------------
@@ -536,10 +532,9 @@ main() {
     # Set up cleanup on script exit
     trap cleanup_on_exit EXIT INT TERM
     
-    print_header "GitLab on K3d with ArgoCD - Secure SSL Deployment"
+    print_header "GitLab on K3d with ArgoCD"
     
     log_info "Starting secure GitLab on K3d deployment script"
-    log_info "This deployment uses proper SSL certificate handling without insecure connections"
     
     create_k3d_cluster
     setup_metallb
@@ -552,7 +547,7 @@ main() {
     deploy_application
     display_access_info
     
-    log_success "Secure deployment completed successfully!"
+    log_success "Deployment completed successfully!"
 }
 
 # Run main function

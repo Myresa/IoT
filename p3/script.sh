@@ -123,7 +123,7 @@ main() {
     # Step 9: Setup application port forwarding
     print_step "9" "Starting application port forwarding"
     log_info "Forwarding application traffic..."
-    kubectl port-forward deployment/playground -n dev 8888:8888 >/dev/null 2>&1 &
+    kubectl port-forward deployment/wil-playground -n dev 8888:8888 >/dev/null 2>&1 &
     log_success "Port forwarding active"
     
     # Final success message
@@ -137,7 +137,8 @@ main() {
     echo -e "   ${CYAN}Password:${NC} ${WHITE}$PASSWORD${NC}"
     echo ""
     echo -e "${YELLOW}${STAR}${NC} ${WHITE}Current version of the app${NC}"
-    echo -e "${CYAN}${curl http://localhost:8888 | jq '.message'}${NC}"
+    sleep 2
+    echo -e "${CYAN}$(curl -s http://localhost:8888 | jq '.message')${NC}"
 }
 
 # Execute main function

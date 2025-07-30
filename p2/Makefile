@@ -13,3 +13,12 @@ clean :
 fclean : 
 	vagrant destroy -f 
 	rm -rf .vagrant
+
+app1 : 
+	curl -H "Host:app1.com" 192.168.56.110
+
+app2 : 
+	curl -H "Host:app2.com" 192.168.56.110
+
+app3 : 
+	curl -H "Host:app3.com" 192.168.56.110
