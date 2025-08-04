@@ -3,7 +3,6 @@
 # =============================================================================
 # GitLab on K3d with ArgoCD Deployment Script
 # =============================================================================
-
 set -euo pipefail  # Exit on error, undefined vars, pipe failures
 
 # -----------------------------------------------------------------------------
@@ -183,7 +182,6 @@ install_gitlab() {
         --namespace gitlab \
         -f gitlab.yaml \
         --set global.hosts.domain="${DOMAIN_NAME}" \
-        --set certmanager-issuer.email="${EMAIL}" \
         --timeout 30m
         # --set nginx-ingress.enabled=true \
         # --set global.externalIngress.class=nginx \
@@ -537,9 +535,9 @@ main() {
     create_k3d_cluster
     setup_metallb
     install_gitlab
-    configure_gitlab_ssl
+    #configure_gitlab_ssl
     setup_gitlab_project
-    setup_dns
+    #setup_dns
     install_argocd
     configure_argocd
     deploy_application

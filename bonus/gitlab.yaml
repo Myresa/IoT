@@ -1,85 +1,53 @@
-# values-minikube.yaml
-# This example intended as baseline to use Minikube for the deployment of GitLab
-# - Minimized CPU/Memory load, can fit into 3 CPU, 6 GB of RAM (barely)
-# - Services that are not compatible with how Minikube runs are disabled
-# - Some services entirely removed, or scaled down to 1 replica.
-# - Configured to use 192.168.99.100, and nip.io for the domain
-
-# Minimal settings
 global:
+  hosts:
+    https: false        # Disable HTTPS globally[7]
+  ingress:
+    configureCertmanager: false  # Ensure cert-manager is not set up for TLS[9]
+  # Optional: further reduce enabled services
   kas:
     enabled: false
-  minio :
-    enabled: false 
-  ingress:
-    configureCertmanager: false
-    class: "nginx"
-    tls.enabled: false
-    
-  # hosts:
-    # domain: 192.168.99.100.nip.io
-    # externalIP: 192.168.99.100
-  # Disable Rails bootsnap cache (temporary)
-  rails:
-    bootsnap:
+  minio:
+    enabled: false
+  certmanager:
+    install: false
+  appConfig:
+    artifacts:
       enabled: false
-  shell:
-    # Configure the clone link in the UI to include the high-numbered NodePort
-    # value from below (`gitlab.gitlab-shell.service.nodePort`)
-    port: 32022
-# Don't use  certmanager, we'll self-sign
-installCertmanager: false
-# Use the `ingress` addon, not our Ingress (can't map 22/80/443)
-nginx-ingress:
-  enabled: true
+    lfs:
+      enabled: false
+    uploads:
+      enabled: false
+    packages:
+      enabled: false
 
-minio :
-  enable: false
-# Save resources, only 3 CPU
-prometheus:
+nginx-ingress:
+  enabled: true              # Needed for HTTP access
+
+certmanager:
   install: false
-gitlab-runner:
-  install: false
-grafana:
-  enabled: false
-registry:
-  enabled: false
 
 gitlab:
   webservice:
-    minReplicas: 1
-    maxReplicas: 1
+    replicaCount: 1
+    ingress:
+      tls:
+        enabled: false       # Explicitly disable TLS for webservice
   sidekiq:
-    minReplicas: 1 
-    maxReplicas: 1
+    ingress:
+      tls:
+        enabled: false
+  toolbox:
+    enabled: false           # Disable toolbox if not needed
   gitlab-shell:
-    minReplicas: 1
-    maxReplicas: 1
-    # Map gitlab-shell to a high-numbered NodePort to support cloning over SSH since
-    # Minikube takes port 22.
-    service:
-      type: NodePort
-      nodePort: 32022
+    replicaCount: 1
+
+# Disable components you're not using (e.g., registry, pages, kas, etc.)
 registry:
-  hpa:
-    minReplicas: 1
-    maxReplicas: 1
+  enabled: false
+gitlab-pages:
+  enabled: false
+prometheus:
+  install: false
+grafana:
+  enabled: false
 
-
-
-
-# Désactiver les services optionnels
-sidekiq:
-gitlab:
-  enabled: false  # Peut être requis selon vos jobs, à tester avec vos usages
-
-global:
-
-
-  # configurez l'URL et le stockage si besoin
-
-postgresql:
-  install: true  # Peut être mis à false si vous avez un PG externe
-
-redis:
-  install: true
