@@ -13,6 +13,7 @@ clean :
 fclean : 
 	vagrant destroy -f 
 	rm -rf .vagrant
+	rm -rf "$(HOME)/VirtualBox VMs"
 
 app1 : 
 	curl -H "Host:app1.com" 192.168.56.110
