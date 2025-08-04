@@ -1,5 +1,5 @@
 all : 
-	./script.sh
+	./script/script.sh
 
 clean : 
 	k3d cluster delete argocluster

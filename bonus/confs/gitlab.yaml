@@ -1,12 +1,12 @@
+#Disabling tons of things to lightweight Gitlab
+
 global:
   hosts:
-    https: false        # Disable HTTPS globally[7]
+    https: false        # Disable HTTPS globally
   ingress:
-    configureCertmanager: false  # Ensure cert-manager is not set up for TLS[9]
-  # Optional: further reduce enabled services
+    configureCertmanager: false 
+
   kas:
-    enabled: false
-  minio:
     enabled: false
   certmanager:
     install: false
@@ -21,27 +21,31 @@ global:
       enabled: false
 
 nginx-ingress:
-  enabled: true              # Needed for HTTP access
+  enabled: true           
 
 certmanager:
   install: false
+
+gitlab-runner: 
+  install : false
 
 gitlab:
   webservice:
     replicaCount: 1
     ingress:
       tls:
-        enabled: false       # Explicitly disable TLS for webservice
+        enabled: false 
   sidekiq:
     ingress:
       tls:
         enabled: false
   toolbox:
-    enabled: false           # Disable toolbox if not needed
+    enabled: true #Toolbox needed for cheeky token generation
   gitlab-shell:
     replicaCount: 1
 
-# Disable components you're not using (e.g., registry, pages, kas, etc.)
+
+# Useless part of gitlab we don't need
 registry:
   enabled: false
 gitlab-pages:

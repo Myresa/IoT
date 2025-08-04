@@ -8,7 +8,7 @@ Vagrant.configure("2") do |config|
         vb.memory = "2048"
         vb.cpus = 2
       end
-      master.vm.provision "shell", path: "server.sh"
+      master.vm.provision "shell", path: "./scripts/server.sh"
     end
   
     config.vm.define "lcamerlySW" do |worker1|
@@ -18,7 +18,7 @@ Vagrant.configure("2") do |config|
         vb.memory = "2048"
         vb.cpus = 2
       end
-      worker1.vm.provision "shell", path: "worker.sh", args: ["192.168.56.110"]
+      worker1.vm.provision "shell", path: "./scripts/worker.sh", args: ["192.168.56.110"]
     end
   
   end
