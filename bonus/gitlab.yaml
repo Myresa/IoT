@@ -7,10 +7,15 @@
 
 # Minimal settings
 global:
+  kas:
+    enabled: false
+  minio :
+    enabled: false 
   ingress:
-    configureCertmanager: true
+    configureCertmanager: false
     class: "nginx"
-    tls.enabled: true
+    tls.enabled: false
+    
   # hosts:
     # domain: 192.168.99.100.nip.io
     # externalIP: 192.168.99.100
@@ -23,16 +28,23 @@ global:
     # value from below (`gitlab.gitlab-shell.service.nodePort`)
     port: 32022
 # Don't use  certmanager, we'll self-sign
-installCertmanager: true
+installCertmanager: false
 # Use the `ingress` addon, not our Ingress (can't map 22/80/443)
 nginx-ingress:
   enabled: true
+
+minio :
+  enable: false
 # Save resources, only 3 CPU
 prometheus:
   install: false
 gitlab-runner:
   install: false
-# Reduce replica counts, reducing CPU & memory requirements
+grafana:
+  enabled: false
+registry:
+  enabled: false
+
 gitlab:
   webservice:
     minReplicas: 1
@@ -52,3 +64,22 @@ registry:
   hpa:
     minReplicas: 1
     maxReplicas: 1
+
+
+
+
+# Désactiver les services optionnels
+sidekiq:
+gitlab:
+  enabled: false  # Peut être requis selon vos jobs, à tester avec vos usages
+
+global:
+
+
+  # configurez l'URL et le stockage si besoin
+
+postgresql:
+  install: true  # Peut être mis à false si vous avez un PG externe
+
+redis:
+  install: true
