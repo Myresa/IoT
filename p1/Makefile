@@ -12,4 +12,5 @@ clean :
 
 fclean : 
 	rm -rf .vagrant
-	vagrant destroy -f 
+	vagrant destroy -f
+	rm -rf "$(HOME)/VirtualBox VMs"
