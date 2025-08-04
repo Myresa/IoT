@@ -181,14 +181,13 @@ install_gitlab() {
     log_info "Installing GitLab..."
     helm install gitlab gitlab/gitlab \
         --namespace gitlab \
+        -f gitlab.yaml \
         --set global.hosts.domain="${DOMAIN_NAME}" \
         --set certmanager-issuer.email="${EMAIL}" \
-        --set global.ingress.configureCertmanager=true \
-        --set global.ingress.tls.enabled=true \
-        --set nginx-ingress.enabled=true \
-        --set global.externalIngress.class=nginx \
-        --set gitlab-runner.install=false \
         --timeout 30m
+        # --set nginx-ingress.enabled=true \
+        # --set global.externalIngress.class=nginx \
+        # --set gitlab-runner.install=false \
     
     log_success "GitLab installation initiated"
 }
