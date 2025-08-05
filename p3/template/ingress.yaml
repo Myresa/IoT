@@ -7,7 +7,7 @@ metadata:
     traefik.ingress.kubernetes.io/router.tls: "false"
 spec:
   rules:
-    - host: argocd.awesome.local
+    - host: {{ARGO_HOST}}
       http:
         paths:
           - path: /
