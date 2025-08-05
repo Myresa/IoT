@@ -124,6 +124,7 @@ main() {
     print_step "9" "Starting application port forwarding"
     log_info "Forwarding application traffic..."
     kubectl port-forward deployment/wil-playground -n dev 8888:8888 >/dev/null 2>&1 &
+    kubectl get svc
     log_success "Port forwarding active"
     
     # Final success message

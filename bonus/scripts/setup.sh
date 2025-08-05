@@ -139,7 +139,7 @@ setup_metallb() {
     wait_for_pods "metallb-system" 90
     
     log_info "Creating MetalLB configuration..."
-    cat > ../confs/metallb-config.yaml << EOF
+    cat > metallb-config.yaml << EOF
 apiVersion: metallb.io/v1beta1
 kind: IPAddressPool
 metadata:
@@ -159,7 +159,7 @@ spec:
   - default-pool
 EOF
     
-    kubectl apply -f ../confs/metallb-config.yaml
+    kubectl apply -f metallb-config.yaml
     log_success "MetalLB configured successfully"
 }
 
@@ -178,7 +178,7 @@ install_gitlab() {
     log_info "Installing GitLab with configuration..."
     helm install gitlab gitlab/gitlab \
         --namespace gitlab \
-        -f ../confs/gitlab.yaml \
+        -f ./confs/gitlab.yaml \
         --set global.hosts.domain=${DOMAIN_NAME} \
         --timeout 30m
     
@@ -202,7 +202,7 @@ setup_gitlab_project() {
     local toolbox_pod
     toolbox_pod=$(kubectl get pods -n gitlab | grep toolbox | awk '{print $1}' | head -n1)
     kubectl exec -n gitlab -it -c toolbox "$toolbox_pod" -- \
-        gitlab-rails runner "$(cat ./generatetoken.rb)" | tr -d '\r' > token
+        gitlab-rails runner "$(cat ./scripts/generatetoken.rb)" | tr -d '\r' > token
     
     local token
     token=$(cat ./token)
@@ -220,7 +220,7 @@ setup_gitlab_project() {
     
     git clone https://github.com/Axiaaa/IoT-p3-lcamerly
     mv IoT-p3-lcamerly/* .
-    rm -rf token.rb IoT-p3-lcamerly/ 
+    rm -rf IoT-p3-lcamerly/ 
     
     log_info "Configuring Git for HTTP access..."
     git config --global http.sslVerify false
@@ -238,10 +238,36 @@ setup_gitlab_project() {
 
 configure_map() {
 
-    sed "s/gitlab\.[^ ]*/gitlab.$DOMAIN_NAME/" ../confs/coredns.yaml | \
-    sed "s/\([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\}/$GITLAB_IP/" | \
-    kubectl apply -f - -n kube-system
-
+    cat > coredns.yaml << EOF
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: coredns
+  namespace: kube-system
+data:
+  Corefile: |
+    .:53 {
+        errors
+        health
+        ready
+        kubernetes cluster.local in-addr.arpa ip6.arpa {
+           pods insecure
+           fallthrough in-addr.arpa ip6.arpa
+           ttl 30
+        }
+        hosts {
+           ${GITLAB_IP} gitlab.${DOMAIN_NAME}
+           fallthrough
+        }
+        prometheus :9153
+        forward . /etc/resolv.conf
+        cache 30
+        loop
+        reload
+        loadbalance
+    }
+EOF
+    kubectl apply -f "coredns.yaml" -n kube-system
     kubectl rollout restart deployment coredns -n kube-system
 
     echo "CoreDNS updated for gitlab.$DOMAIN_NAME -> $GITLAB_IP"
@@ -304,10 +330,16 @@ EOF
     log_success "ArgoCD installation and application setup complete"
     rm -f argocd-app.yaml
 
-    print_step "8" "Waiting for application pods to be ready"
+    print_step "6" "Waiting for application pods to be ready"
     echo -ne "${BLUE}${GEAR}${NC} ${WHITE}Checking application status"
-    wait_for_pods "dev" 180
-    kubectl port-forward deployment/wil-playground -n dev playground8888:8888 >/dev/null 2>&1 &
+    
+    while kubectl get pods -n dev | grep playground | grep -v Running >/dev/null 2>&1; do
+        echo -ne "."
+        sleep 2
+    done
+    
+    kubectl port-forward deployment/wil-playground -n dev 8888:8888 >/dev/null 2>&1 &
+
 }
 
 
