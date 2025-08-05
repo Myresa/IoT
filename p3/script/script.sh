@@ -17,6 +17,8 @@ readonly ARROW="→"
 readonly STAR="★"
 readonly GEAR="⚙"
 
+readonly ARGO_HOST="argocd.awesome.local"
+
 # Logging functions
 log_info() {
     echo -e "${BLUE}${GEAR}${NC} ${WHITE}$1${NC}"
@@ -52,7 +54,7 @@ main() {
     # Step 1: Create k3d cluster
     print_step "1" "Creating k3d cluster with 2 agents"
     log_info "Creating cluster 'argocluster'..."
-    k3d cluster create argocluster --agents 2
+    k3d cluster create argocluster --config conf/k3d.yaml
     log_success "Cluster created successfully"
     
     # Step 2: Setup ArgoCD namespace
@@ -66,30 +68,41 @@ main() {
     kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
     log_success "ArgoCD manifests applied"
     
-    # Step 4: Wait for ArgoCD pods
-    print_step "4" "Waiting for ArgoCD pods to be ready"
-    echo -ne "${BLUE}${GEAR}${NC} ${WHITE}Checking pod status"
+
+    # Step 4: reapply the fucking insecure server configuration
+    print_step "4" "Applying insecure configuration"
+    kubectl apply -n argocd -f conf/configmap.yaml
     
+    print_step "5" "Restarting deployment"
+    kubectl rollout restart deployment argocd-server -n argocd
+
+    # Step 6: Wait for ArgoCD pods
+    print_step "6" "Waiting for ArgoCD pods to be ready"
+    echo -ne "${BLUE}${GEAR}${NC} ${WHITE}Checking pod status"
     while [[ $(kubectl get pods -n argocd -o json | jq '[.items[] | select(.status.phase=="Running" and ([.status.containerStatuses[]?.ready] | all))] | length') -lt 7 ]]; do
         echo -ne "."
         sleep 2
     done
-    
     echo -e "\n${GREEN}${CHECKMARK}${NC} ${WHITE}All ArgoCD pods are ready!${NC}"
     
-    # Step 5: Setup port forwarding and authentication
-    print_step "5" "Configuring ArgoCD access"
-    log_info "Starting port forwarding for ArgoCD server..."
-    kubectl port-forward svc/argocd-server -n argocd 8080:443 >/dev/null 2>&1 &
-    sleep 1
     
+
+    # Step 7: Wait for ArgoCD pods
+    print_step "7" "login in argocd"
+    log_info "Retrieving admin password..."
+	kubectl get pods -n argocd
+    kubectl wait -n argocd --for=condition=Ready pods --all --timeout="60s"
+	kubectl get pods -n argocd
     log_info "Retrieving admin password..."
     PASSWORD=$(kubectl get secret argocd-initial-admin-secret -n argocd -o jsonpath="{.data.password}" | base64 -d)
+
+    kubectl apply -f conf/ingress.yaml
+
+    kubectl wait --for=condition=ready ingress/iot-ingress --namespace argocd
     
     log_info "Logging into ArgoCD..."
-    argocd login localhost:8080 --username admin --password "$PASSWORD" --insecure
-    log_success "Successfully logged into ArgoCD"
-    
+    argocd login --insecure --username admin --password "$PASSWORD" argocd.awesome.local:80 --plaintext --grpc-web
+
     # Step 6: Create development namespace
     print_step "6" "Setting up development environment"
     log_info "Creating dev namespace..."
@@ -99,8 +112,8 @@ main() {
     print_step "7" "Deploying application via ArgoCD"
     log_info "Creating ArgoCD application 'will42'..."
     argocd app create will42 \
-        --repo https://github.com/Axiaaa/IoT-p3-lcamerly \
-        --path . \
+	--repo https://github.com/Axiaaa/IoT \
+        --path  p2/confs \
         --dest-server https://kubernetes.default.svc \
         --dest-namespace dev \
         --sync-policy automated
@@ -130,7 +143,7 @@ main() {
     # Final success message
     print_header "Deployment Complete!"
     
-    echo -e "${GREEN}${CHECKMARK}${NC} ${WHITE}ArgoCD is available at:${NC} ${CYAN}https://localhost:8080${NC}"
+    echo -e "${GREEN}${CHECKMARK}${NC} ${WHITE}ArgoCD is available at:${NC} ${CYAN}http://${ARGO_HOST}${NC}"
     echo -e "${GREEN}${CHECKMARK}${NC} ${WHITE}Application is available at:${NC} ${CYAN}http://localhost:8888${NC}"
     echo ""
     echo -e "${YELLOW}${STAR}${NC} ${WHITE}ArgoCD Login Credentials:${NC}"
