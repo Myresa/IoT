@@ -17,7 +17,7 @@ readonly ARROW="→"
 readonly STAR="★"
 readonly GEAR="⚙"
 
-readonly ARGO_HOST="argocd.awesome.local"
+readonly ARGO_HOST="argocd.selfhosted"
 
 # Logging functions
 log_info() {
@@ -50,6 +50,10 @@ print_step() {
 # Main script execution
 main() {
     print_header "ArgoCD Cluster Setup & Deployment"
+
+    if ! grep "${ARGO_HOST}" /etc/hosts; then
+        echo -e "127.0.0.1       ${ARGO_HOST}" | sudo tee -a /etc/hosts
+    fi
     
     # Step 1: Create k3d cluster
     print_step "1" "Creating k3d cluster with 2 agents"
