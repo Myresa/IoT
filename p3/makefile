@@ -1,9 +1,9 @@
-ARGO_HOST = argocd.selfhosted
+ARGO_HOST = argocd.selfh0sted
 TEMPLATE_DIR = template
 OUTPUT_DIR = conf
 
 all : conf-generation
-	./script/script.sh
+	./script/script.sh $(ARGO_HOST)
 
 clean : 
 	k3d cluster delete argocluster

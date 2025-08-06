@@ -17,7 +17,7 @@ readonly ARROW="→"
 readonly STAR="★"
 readonly GEAR="⚙"
 
-readonly ARGO_HOST="argocd.selfhosted"
+readonly ARGO_HOST="$1"
 
 # Logging functions
 log_info() {
@@ -105,7 +105,7 @@ main() {
     kubectl wait --for=condition=ready ingress/iot-ingress --namespace argocd
     
     log_info "Logging into ArgoCD..."
-    argocd login --insecure --username admin --password "$PASSWORD" argocd.awesome.local:80 --plaintext --grpc-web
+    argocd login --insecure --username admin --password "$PASSWORD" ${ARGO_HOST}:80 --plaintext --grpc-web
 
     # Step 6: Create development namespace
     print_step "6" "Setting up development environment"
@@ -138,11 +138,11 @@ main() {
     echo -e "\n${GREEN}${CHECKMARK}${NC} ${WHITE}Application is running!${NC}"
     
     # Step 9: Setup application port forwarding
-    print_step "9" "Starting application port forwarding"
-    log_info "Forwarding application traffic..."
-    kubectl port-forward deployment/wil-playground -n dev 8888:8888 >/dev/null 2>&1 &
-    kubectl get svc
-    log_success "Port forwarding active"
+    #print_step "9" "Starting application port forwarding"
+    #log_info "Forwarding application traffic..."
+    #kubectl port-forward deployment/wil-playground -n dev 8888:8888 >/dev/null 2>&1 &
+    #kubectl get svc
+    #log_success "Port forwarding active"
     
     # Final success message
     print_header "Deployment Complete!"
