@@ -1,0 +1,57 @@
+#Disabling tons of things to lightweight Gitlab
+
+global:
+  hosts:
+    https: false        # Disable HTTPS globally
+  ingress:
+    configureCertmanager: false 
+
+  kas:
+    enabled: false
+  certmanager:
+    install: false
+  appConfig:
+    artifacts:
+      enabled: false
+    lfs:
+      enabled: false
+    uploads:
+      enabled: false
+    packages:
+      enabled: false
+
+nginx-ingress:
+  enabled: true           
+
+certmanager:
+  install: false
+
+gitlab-runner: 
+  install : false
+
+gitlab:
+  webservice:
+    replicaCount: 1
+    ingress:
+      tls:
+        enabled: false 
+  sidekiq:
+    ingress:
+      tls:
+        enabled: false
+  toolbox:
+    enabled: true #Toolbox needed for cheeky token generation
+  gitlab-shell:
+    replicaCount: 1
+
+
+# Useless part of gitlab we don't need
+registry:
+  enabled: false
+gitlab-pages:
+  enabled: false
+prometheus:
+  install: false
+grafana:
+  enabled: false
+

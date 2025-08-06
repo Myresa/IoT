@@ -10,7 +10,6 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 readonly CLUSTER_NAME="gitlab"
 readonly DOMAIN_NAME="sara.croche"
 readonly EMAIL="lululadebrouille@example.com"
-readonly METALLB_IP_RANGE="172.22.255.200-172.22.255.250"
 readonly PROJECT_NAME="lcamerly-p3-app"
 readonly SSH_KEY_TITLE="AutoAddedKey-$(date +%s)"
 readonly PUBKEY_PATH="${HOME}/.ssh/id_rsa.pub"
