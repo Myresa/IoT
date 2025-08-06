@@ -133,32 +133,10 @@ setup_metallb() {
     
     log_info "Installing MetalLB manifests..."
     kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.15.2/config/manifests/metallb-native.yaml
-    
     log_info "Waiting for MetalLB pods to be ready..."
     wait_for_pods "metallb-system" 90
-    
     log_info "Creating MetalLB configuration..."
-    cat > metallb-config.yaml << EOF
-apiVersion: metallb.io/v1beta1
-kind: IPAddressPool
-metadata:
-  name: default-pool
-  namespace: metallb-system
-spec:
-  addresses:
-  - ${METALLB_IP_RANGE}
----
-apiVersion: metallb.io/v1beta1
-kind: L2Advertisement
-metadata:
-  name: default
-  namespace: metallb-system
-spec:
-  ipAddressPools:
-  - default-pool
-EOF
-    
-    kubectl apply -f metallb-config.yaml
+    kubectl apply -f confs/metallb-config.yaml
     log_success "MetalLB configured successfully"
 }
 
@@ -238,36 +216,13 @@ setup_gitlab_project() {
 configure_map() {
 
     cat > coredns.yaml << EOF
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: coredns
-  namespace: kube-system
-data:
-  Corefile: |
-    .:53 {
-        errors
-        health
-        ready
-        kubernetes cluster.local in-addr.arpa ip6.arpa {
-           pods insecure
-           fallthrough in-addr.arpa ip6.arpa
-           ttl 30
-        }
-        hosts {
-           ${GITLAB_IP} gitlab.${DOMAIN_NAME}
-           fallthrough
-        }
-        prometheus :9153
-        forward . /etc/resolv.conf
-        cache 30
-        loop
-        reload
-        loadbalance
-    }
 EOF
     kubectl apply -f "coredns.yaml" -n kube-system
     kubectl rollout restart deployment coredns -n kube-system
+
+    ./scripts/generate-configuration.sh template/coredns.yaml confs/ \
+      GITLAB_IP=$GITLAB_IP \
+      DOMAIN_NAME=$DOMAIN_NAME
 
     echo "CoreDNS updated for gitlab.$DOMAIN_NAME -> $GITLAB_IP"
 }

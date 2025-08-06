@@ -17,12 +17,30 @@ done
 mkdir -p "$output_dir"
 
 # Parcourir tous les fichiers dans le répertoire templates
-for template_file in "$templates_dir"/*; do
-    filename=$(basename "$template_file")
+if [ -d $templates_dir ] ; then
+  for template_file in "$templates_dir"/*; do
+      filename=$(basename "$template_file")
+      output_file="$output_dir/$filename"
+
+      # Lire le contenu du fichier template
+      content=$(cat "$template_file")
+
+      # Pour chaque clé dans les substitutions, faire le remplacement {{KEY}} -> valeur
+      for key in "${!replacements[@]}"; do
+          # Remplace toutes les occurrences de {{KEY}} par la valeur
+          content=$(echo "$content" | sed "s/{{${key}}}/${replacements[$key]}/g")
+      done
+
+      # Écrire le contenu modifié dans le fichier de sortie
+      echo "$content" > "$output_file"
+      echo "Generated $output_file"
+  done
+elif [ -f $templates_dir ] ; then
+    filename=$(basename "$templates_dir")
     output_file="$output_dir/$filename"
 
     # Lire le contenu du fichier template
-    content=$(cat "$template_file")
+    content=$(cat "$templates_dir")
 
     # Pour chaque clé dans les substitutions, faire le remplacement {{KEY}} -> valeur
     for key in "${!replacements[@]}"; do
@@ -33,5 +51,5 @@ for template_file in "$templates_dir"/*; do
     # Écrire le contenu modifié dans le fichier de sortie
     echo "$content" > "$output_file"
     echo "Generated $output_file"
-done
+fi
 

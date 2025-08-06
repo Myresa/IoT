@@ -15,7 +15,7 @@ data:
            ttl 30
         }
         hosts {
-           {{GITLAB_IP}} gitlab.{{DOMAIN_NAME}}
+           ipdefou gitlab.domainedefou
            fallthrough
         }
         prometheus :9153
